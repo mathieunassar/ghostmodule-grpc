@@ -1,0 +1,7 @@
+[requires]
+ghostmodule/1.4@mathieunassar/stable
+grpc/1.25.0@inexorgame/stable
+gtest/1.8.1@bincrafters/stable
+
+[generators]
+cmake

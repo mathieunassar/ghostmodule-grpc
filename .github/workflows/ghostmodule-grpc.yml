@@ -1,0 +1,69 @@
+name: ghostmodule-grpc-ci
+
+# Controls when the action will run. Triggers the workflow on push or pull request
+# events but only for the master branch
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  # This workflow contains a single job called "build"
+  build:
+    # The type of runner that the job will run on
+    runs-on: ${{ matrix.os }}
+    
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-2016, macos-latest]
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v2
+      - uses: ilammy/msvc-dev-cmd@v1.4.1
+     
+      - name: Select XCode
+        if: matrix.os == 'macos-latest'
+        run: |
+          sudo xcode-select -s /Applications/Xcode_11.7.app/Contents/Developer
+          clang -v
+             
+      - name: Set up Python 3.x
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.x'
+              
+      - name: Install Conan
+        run: |
+          pip3 --version
+          pip3 install conan
+          
+      - name: Cache Conan Dependencies
+        uses: actions/cache@v2
+        with:
+          path: ~/.conan/data
+          key: ${{ runner.os }}-build-ghostmodule-grpc-${{ hashFiles('conanfile.txt') }}
+
+      - name: Conan Configuration
+        run: |
+          conan user
+          conan remote add ghostrobotics "https://api.bintray.com/conan/mathieunassar/ghostrobotics"
+          conan remote add bincrafters "https://api.bintray.com/conan/bincrafters/public-conan"
+          conan remote add inexorgame "https://api.bintray.com/conan/inexorgame/inexor-conan"
+      
+      - name: CMake Configure
+        run: |
+          mkdir build
+          cd build
+          cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_EXAMPLES=ON -DBUILD_TESTS=ON -DBUILD_SYSTEMTESTS=ON ..
+      
+      - name: CMake Build
+        run: cmake --build . --config Release
+        working-directory: ./build
+        
+      - name: CTest
+        run: ctest . -C Release
+        working-directory: ./build
