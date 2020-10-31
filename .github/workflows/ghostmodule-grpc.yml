@@ -1,29 +1,27 @@
 name: ghostmodule-grpc-ci
 
-# Controls when the action will run. Triggers the workflow on push or pull request
-# events but only for the master branch
 on:
   push:
     branches: [ master ]
   pull_request:
     branches: [ master ]
 
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
-  # This workflow contains a single job called "build"
   build:
-    # The type of runner that the job will run on
     runs-on: ${{ matrix.os }}
-    
+
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-2016, macos-latest]
 
-    # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v2
-      - uses: ilammy/msvc-dev-cmd@v1.4.1
+        
+      - name: Select Visual Studio 2017
+        uses: ilammy/msvc-dev-cmd@v1.4.1
+        with:
+          arch: x86_x64
      
       - name: Select XCode
         if: matrix.os == 'macos-latest'
@@ -54,11 +52,21 @@ jobs:
           conan remote add bincrafters "https://api.bintray.com/conan/bincrafters/public-conan"
           conan remote add inexorgame "https://api.bintray.com/conan/inexorgame/inexor-conan"
       
-      - name: CMake Configure
-        run: |
-          mkdir build
-          cd build
-          cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_EXAMPLES=ON -DBUILD_TESTS=ON -DBUILD_SYSTEMTESTS=ON ..
+      - name: Conan Install Dependencies
+        run: conan install .
+      
+      - name: Build Setup
+        run: mkdir build
+      
+      - name: CMake Configure (Windows)
+        run: cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_EXAMPLES=ON -DBUILD_TESTS=ON -DBUILD_SYSTEMTESTS=ON -G "Visual Studio 15 2017 Win64" ..
+        working-directory: ./build
+        if: matrix.os == 'windows-2016'
+      
+      - name: CMake Configure (other OS)
+        run: cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_EXAMPLES=ON -DBUILD_TESTS=ON -DBUILD_SYSTEMTESTS=ON ..
+        working-directory: ./build
+        if: matrix.os != 'windows-2016'
       
       - name: CMake Build
         run: cmake --build . --config Release
